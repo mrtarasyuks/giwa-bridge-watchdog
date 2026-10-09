@@ -1,0 +1,19 @@
+{
+  "name": "giwa-bridge-watchdog",
+  "version": "1.0.0",
+  "description": "Finds stuck ETH bridge withdrawals between Ethereum Sepolia and GIWA Sepolia (OP Stack testnet)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "viem": "^2.57.4"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4"
+  }
+}
