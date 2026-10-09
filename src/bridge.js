@@ -125,49 +125,38 @@ async function scanL1Activity(address, maxItems) {
   };
 }
 
+/**
+ * Returns a plain status descriptor { code, daysLeft? } — no display text. The UI layer
+ * (main.js + i18n.js) turns `code` into a localized label/verdict/action so this module
+ * stays language-agnostic.
+ */
 function withdrawalStatus(proof, finalize, l1Unavailable) {
   const now = Date.now();
   if (!proof && !finalize && l1Unavailable) {
-    return {
-      code: 'unknown',
-      label: 'Статус на L1 невідомий (джерело недоступне)',
-      action: 'Не вдалось прочитати L1 explorer — перевірте вручну, чи зроблено prove/finalize.',
-    };
+    return { code: 'unknown' };
   }
   if (finalize) {
-    return finalize.success
-      ? { code: 'done', label: 'Завершено', action: null }
-      : { code: 'failed', label: 'Finalize виконано, але L2-виклик провалився', action: 'Перевірте деталі транзакції на L1 explorer — можливо, потрібно повторити finalize.' };
+    return finalize.success ? { code: 'done' } : { code: 'failed' };
   }
   if (proof) {
     const provenAt = new Date(proof.timestamp).getTime();
     const readyAt = provenAt + APPROX_CHALLENGE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
     if (now < readyAt) {
       const daysLeft = Math.max(0, (readyAt - now) / (24 * 60 * 60 * 1000));
-      return {
-        code: 'challenge',
-        label: `У challenge-періоді (≈${daysLeft.toFixed(1)} дн. лишилось)`,
-        action: 'Нічого робити не треба — зачекайте завершення періоду, потім викличте finalize.',
-      };
+      return { code: 'challenge', daysLeft };
     }
-    return {
-      code: 'ready',
-      label: 'Готове до finalize',
-      action: 'Challenge-період минув — викличте finalize withdrawal на L1, інакше кошти застрягнуть.',
-    };
+    return { code: 'ready' };
   }
-  return {
-    code: 'needs-prove',
-    label: 'Потребує prove на L1',
-    action: 'Виведення ініційоване на L2, але ще не підтверджене (proven) на L1 — без цього кроку воно застрягне назавжди.',
-  };
+  return { code: 'needs-prove' };
 }
 
-export async function scanAddress(address, { deep = false } = {}) {
+export async function scanAddress(address, { deep = false, onProgress } = {}) {
   const normalized = getAddress(address);
   const maxL2 = deep ? L2_SCAN_DEEP : L2_SCAN_NORMAL;
   const maxL1 = deep ? L1_SCAN_DEEP : L1_SCAN_NORMAL;
+  const notify = (step) => onProgress?.(step);
 
+  notify('l2');
   let l2Result;
   try {
     l2Result = await findInitiatedWithdrawals(normalized, maxL2);
@@ -176,6 +165,7 @@ export async function scanAddress(address, { deep = false } = {}) {
   }
   const { withdrawals: initiated, scanned: l2Scanned, truncated: l2Truncated } = l2Result;
 
+  notify('l1');
   let l1Activity = { proven: [], provenExt1: [], finalized: [], deposited: [], scanned: 0, truncated: false };
   let l1Unavailable = null;
   try {
@@ -183,6 +173,8 @@ export async function scanAddress(address, { deep = false } = {}) {
   } catch (err) {
     l1Unavailable = err.message;
   }
+
+  notify('match');
 
   const provenByHash = new Map();
   for (const p of l1Activity.proven) provenByHash.set(p.withdrawalHash, p);

@@ -8,13 +8,13 @@ A read-only tool that finds **stuck ETH bridge withdrawals** between Ethereum Se
 
 This isn't a hypothetical. A single `eth_getLogs` call over the full history of GIWA Sepolia's `OptimismPortal2` contract on L1 (no sampling — every event the contract has ever emitted) shows, as of 2026-10-09:
 
-![Network-wide stats banner showing 3665 proven, 358 finalized, 3307 pending, 3197 overdue](screenshots/01-network-stats-home.png)
+![Network-wide stats grid showing 3667 proven, 358 finalized, 3309 pending, 3197 overdue](screenshots/01-network-stats-home.png)
 
 | | |
 |---|---|
-| Withdrawals proven | **3,665** |
+| Withdrawals proven | **3,667** |
 | Of those, finalized | **358** |
-| Still pending finalize | **3,307** |
+| Still pending finalize | **3,309** |
 | Past the ~7-day challenge period and still not finalized | **3,197** |
 
 **3,197 withdrawals are technically ready to claim and sitting stuck anyway, with nobody calling `finalize`.** That's not counting withdrawals that never even got proven in the first place — the real number of stuck funds is higher. The banner recomputes this live on every page load, directly in the visitor's browser, from the contract's own event log — it's not a cached or canned number.
@@ -36,7 +36,10 @@ The official GIWA explorer shows raw transactions but doesn't tell you *which st
 - For every withdrawal it finds the `MessagePassed` event (L2) and checks for matching `WithdrawalProven` / `WithdrawalFinalized` events (L1) by `withdrawalHash`.
 - Each withdrawal gets a plain-language status badge: needs prove, in the challenge period (with an estimated countdown), ready to finalize, or done — plus one sentence on what to do next.
 - Deposits (L1 → L2) are listed too, with a reminder to check the L2 explorer if one takes longer than the usual 1–3 minutes.
-- A network-wide stats banner at the top reads OptimismPortal2's own event log directly (one `eth_getLogs` call to a public L1 RPC, full history) and shows, for the whole network: how many withdrawals have been proven, how many finalized, and — the headline number — how many are proven but still not finalized *after* the challenge-period estimate has passed, i.e. genuinely stuck with nobody calling finalize.
+- A network-wide stats banner at the top reads OptimismPortal2's own event log directly (one `eth_getLogs` call to a public L1 RPC, full history) and shows, for the whole network: how many withdrawals have been proven, how many finalized, and — the headline number — how many are proven but still not finalized *after* the challenge-period estimate has passed, i.e. genuinely stuck with nobody calling finalize. The four numbers count up from zero the first time the page loads.
+- The interface is in English by default, with a compact EN/FR/ES/UA switcher in the header (remembered in `localStorage`, also readable from `?lang=`), and a light/dark theme toggle that follows the system preference until you pick one explicitly.
+
+![Light theme](screenshots/04-light-theme.png)
 
 No wallet connect, no signing, nothing to approve. It only reads public chain data in your browser.
 
@@ -56,7 +59,7 @@ No wallet connect, no signing, nothing to approve. It only reads public chain da
 - Deposits are matched to L1 initiation only; the tool does not attempt to compute the exact L2 mint transaction hash, so "arrived on L2" is left for you to confirm on the explorer rather than guessed.
 - If `eth-sepolia.blockscout.com` is unreachable or rate-limits, the per-address L1 status (prove/finalize) is shown as "unknown" rather than guessed — withdrawal data from GIWA's own explorer still loads independently. The network-wide banner tries three public L1 RPCs in order (see Data sources): if the primary is down, it shows a ~1-day window from a fallback RPC instead of full history (clearly labeled as such), and only shows its own failure message if all three are unreachable.
 - The network-wide banner counts withdrawals proven at least once; it is a full history scan of `OptimismPortal2`'s own log (not a sample), so the proven/finalized totals are exact as of when the page loads — only the "overdue" split depends on the unconfirmed challenge-period estimate above.
-- Tested in October 2026 against real GIWA Sepolia testnet addresses, including one found via the network-wide scan that completed a full initiate→prove→finalize cycle (now the second example link on the page) — so both the "stuck" and the "done" states are demoed with real data, not samples.
+- Tested in October 2026 against real GIWA Sepolia testnet addresses, including one found via the network-wide scan that completed a full initiate→prove→finalize cycle — so both the "stuck" and the "done" states (see screenshots) are demoed with real data, not samples. The one-click example links shown on earlier versions of this page were removed in favor of a cleaner first screen; paste any address that has bridged ETH on GIWA Sepolia to try it.
 - Not affiliated with the official GIWA project. GIWA Sepolia is a testnet; mainnet and any token do not exist yet. Be careful of phishing sites using the GIWA brand.
 - The `OptimismPortal2` address and the 7-day challenge-period estimate used by the network-wide banner have **not** been independently cross-checked against `docs.giwa.io/giwa-chain/en/network-information/contracts` — every build round so far (including this one) has had no web access to do that check; see `src/constants.js` for the exact caveat. Worth doing before citing either number anywhere beyond this demo.
 
@@ -74,4 +77,13 @@ npm run build    # builds the static site into docs/ (served by GitHub Pages)
 
 ## Stack
 
-Plain Vite + vanilla JS + [viem](https://viem.sh) for ABI decoding. No framework, no backend.
+Plain Vite + vanilla JS + [viem](https://viem.sh) for ABI decoding. No framework, no backend, no UI/animation/i18n library — the language switcher (`src/i18n.js`), theme toggle (`src/theme.js`) and icon set (`src/icons.js`) are a few hundred lines of plain JS and CSS each.
+
+## Screenshots
+
+| | |
+|---|---|
+| Stuck withdrawal (needs prove) | ![Stuck withdrawal example with initiate → prove → finalize stepper](screenshots/03-stuck-withdrawal-example.png) |
+| Completed cycle (prove + finalize) | ![Completed withdrawal example, all three steps done](screenshots/02-completed-cycle-example.png) |
+| Mobile | ![Mobile layout](screenshots/05-mobile.png) |
+| Language switch (Ukrainian) | ![Interface switched to Ukrainian](screenshots/06-language-switch.png) |

@@ -1,73 +1,89 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GIWA Bridge Watchdog — find stuck ETH withdrawals</title>
   <meta name="description" content="Paste an address and see every ETH bridge transfer between Ethereum Sepolia and GIWA Sepolia, with a clear status for withdrawals stuck mid-way." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐕</text></svg>" />
-  <script type="module" crossorigin src="./assets/index-C6_0rgha.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Dtt-g7YN.css">
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%237c5cff%22 stroke-width=%222%22><path d=%22M12 3 4 6.5v5.2c0 4.6 3.3 7.4 8 9.3 4.7-1.9 8-4.7 8-9.3V6.5L12 3Z%22/></svg>" />
+  <script type="module" src="./assets/index-DnMmhnEl.js"></script>
+  <link rel="stylesheet" href="./assets/index-D7guRfEj.css">
 </head>
 <body>
+  <div class="bg-glow" aria-hidden="true"></div>
   <div class="wrap">
-    <header>
-      <h1>🐕 GIWA Bridge Watchdog</h1>
-      <p class="tagline">Знаходить «застряглі» виведення ETH між Ethereum Sepolia та GIWA Sepolia</p>
+    <header class="top">
+      <div class="brand">
+        <span class="brand-icon" data-icon="logo"></span>
+        <div>
+          <h1 data-i18n="app.title">GIWA Bridge Watchdog</h1>
+          <p class="tagline" data-i18n="app.tagline">Finds ETH bridge withdrawals stuck between Ethereum Sepolia and GIWA Sepolia</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="lang-switch" id="lang-switch" role="group" data-i18n-aria-label="controls.language"></div>
+        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Toggle theme"></button>
+      </div>
     </header>
 
-    <section id="network-stats" class="network-stats" aria-live="polite">
-      <p class="loading">Завантажуємо мережеву статистику з OptimismPortal2…</p>
+    <section id="network-stats" class="panel stats-panel reveal" aria-live="polite">
+      <div class="stats-head">
+        <span class="stats-icon" data-icon="chart"></span>
+        <h2 data-i18n="stats.heading">Network-wide withdrawal stats</h2>
+      </div>
+      <p class="stats-source" id="stats-source"></p>
+      <div class="stats-grid" id="stats-grid">
+        <p class="loading-line" data-i18n="stats.loading">Loading network-wide stats from OptimismPortal2…</p>
+      </div>
+      <div id="stats-extra"></div>
     </section>
 
-    <form id="search-form" class="search">
-      <input
-        id="address-input"
-        type="text"
-        placeholder="0x... адреса кошелька"
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button type="submit">Перевірити</button>
-    </form>
+    <section class="panel search-panel reveal">
+      <form id="search-form" class="search">
+        <input
+          id="address-input"
+          type="text"
+          data-i18n-placeholder="search.placeholder"
+          placeholder="0x… wallet address"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" id="search-button" class="btn-primary">
+          <span class="btn-icon" data-icon="search"></span>
+          <span data-i18n="search.button">Check address</span>
+        </button>
+      </form>
 
-    <div id="examples" class="examples">
-      <span class="hint">(вставте будь-яку адресу, що бриджила ETH на GIWA Sepolia)</span>
-    </div>
-
-    <div id="status" class="status" hidden></div>
-
-    <div id="scan-deeper" class="scan-deeper" hidden></div>
+      <div id="progress" class="progress" hidden></div>
+      <div id="status" class="status-msg" hidden></div>
+      <div id="scan-deeper" class="scan-deeper" hidden></div>
+    </section>
 
     <main id="results" class="results" hidden>
-      <section id="withdrawals-section">
-        <h2>Виведення L2 → L1 <span class="muted">(GIWA Sepolia → Ethereum Sepolia)</span></h2>
-        <p class="section-note">Кожне виведення проходить 3 кроки: <b>initiate</b> на L2 → <b>prove</b> на L1 (у вікні ~дні) → <b>finalize</b> на L1 (після challenge-періоду). Застрягти можна на будь-якому кроці.</p>
+      <section class="panel reveal-item">
+        <h2>
+          <span data-i18n="sections.withdrawalsTitle">Withdrawals</span>
+          <span class="muted" data-i18n="sections.withdrawalsSub">L2 → L1 · GIWA Sepolia → Ethereum Sepolia</span>
+        </h2>
+        <p class="section-note" data-i18n-html="sections.withdrawalsNote"></p>
         <div id="withdrawals-list" class="list"></div>
       </section>
 
-      <section id="deposits-section">
-        <h2>Депозити L1 → L2 <span class="muted">(Ethereum Sepolia → GIWA Sepolia)</span></h2>
-        <p class="section-note">Депозит зазвичай зараховується за 1–3 хвилини. Застряглі депозити рідкісні, але теж трапляються.</p>
+      <section class="panel reveal-item">
+        <h2>
+          <span data-i18n="sections.depositsTitle">Deposits</span>
+          <span class="muted" data-i18n="sections.depositsSub">L1 → L2 · Ethereum Sepolia → GIWA Sepolia</span>
+        </h2>
+        <p class="section-note" data-i18n="sections.depositsNote"></p>
         <div id="deposits-list" class="list"></div>
       </section>
     </main>
 
     <footer>
-      <p>
-        Дані напряму з публічних Blockscout API:
-        <a href="https://sepolia-explorer.giwa.io/" target="_blank" rel="noopener">GIWA Sepolia explorer</a> та
-        <a href="https://eth-sepolia.blockscout.com/" target="_blank" rel="noopener">Ethereum Sepolia explorer</a>.
-        Нічого не підписується, жодного кошелька не підключено — лише читання публічних даних у вашому браузері.
-      </p>
-      <p class="disclaimer">
-        Непов'язано з офіційним проєктом GIWA. GIWA Sepolia — тестова мережа, mainnet і токен ще не існують.
-        Будьте обережні з фішинговими сайтами під брендом GIWA.
-      </p>
-      <p>
-        <a href="https://github.com/giwa-io" target="_blank" rel="noopener">GIWA on GitHub</a> ·
-        <a href="https://docs.giwa.io/" target="_blank" rel="noopener">GIWA docs</a>
-      </p>
+      <p id="footer-data"></p>
+      <p class="disclaimer" data-i18n="footer.disclaimer"></p>
+      <p id="footer-links"></p>
     </footer>
   </div>
 
