@@ -65,6 +65,19 @@ header h1 { margin: 0 0 6px; font-size: 1.8rem; }
 .examples a { color: var(--accent); }
 .examples .hint { display: inline-block; margin-left: 4px; }
 
+.network-stats {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.9rem;
+}
+.network-stats p { margin: 0 0 6px; }
+.network-stats p:last-child { margin-bottom: 0; }
+.network-stats .note { color: var(--muted); font-size: 0.8rem; }
+.network-stats .loading { color: var(--muted); }
+
 .status {
   margin-top: 20px;
   padding: 12px 14px;

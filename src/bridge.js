@@ -22,7 +22,7 @@ const WITHDRAWAL_ENTRYPOINTS = new Set(
   [L2_TO_L1_MESSAGE_PASSER, L2_STANDARD_BRIDGE, L2_CROSS_DOMAIN_MESSENGER].map((a) => a.toLowerCase())
 );
 
-function decodeLog(item, eventAbi) {
+export function decodeLog(item, eventAbi) {
   try {
     const topics = (item.topics ?? []).filter(Boolean);
     return decodeEventLog({ abi: [eventAbi], data: item.data, topics });

@@ -30,6 +30,27 @@ export async function fetchTxLogs(base, txHash) {
   return page.items ?? [];
 }
 
+/** Fetches up to `maxItems` logs emitted BY `address` (as a contract), newest first. */
+export async function fetchAddressLogs(base, address, maxItems = 300) {
+  const items = [];
+  let params = '';
+  while (items.length < maxItems) {
+    const url = `${base}/api/v2/addresses/${address}/logs${params ? `?${params}` : ''}`;
+    const page = await getJson(url);
+    const pageItems = page.items ?? [];
+    items.push(...pageItems);
+    if (!page.next_page_params || pageItems.length === 0) break;
+    params = new URLSearchParams(page.next_page_params).toString();
+  }
+  return items.slice(0, maxItems);
+}
+
+/** Fetches the unix/ISO timestamp of a block, used to estimate withdrawal age. */
+export async function fetchBlockTimestamp(base, blockNumber) {
+  const block = await getJson(`${base}/api/v2/blocks/${blockNumber}`);
+  return block.timestamp ?? null;
+}
+
 /** Runs `worker` over `items` with at most `limit` in flight at once. */
 export async function mapWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);

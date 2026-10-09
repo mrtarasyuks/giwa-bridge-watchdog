@@ -6,8 +6,8 @@
   <title>GIWA Bridge Watchdog — find stuck ETH withdrawals</title>
   <meta name="description" content="Paste an address and see every ETH bridge transfer between Ethereum Sepolia and GIWA Sepolia, with a clear status for withdrawals stuck mid-way." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐕</text></svg>" />
-  <script type="module" crossorigin src="./assets/index-XdVoNYcd.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CziYJ0mR.css">
+  <script type="module" crossorigin src="./assets/index-DjJkJHsY.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DJC57fTC.css">
 </head>
 <body>
   <div class="wrap">
@@ -15,6 +15,10 @@
       <h1>🐕 GIWA Bridge Watchdog</h1>
       <p class="tagline">Знаходить «застряглі» виведення ETH між Ethereum Sepolia та GIWA Sepolia</p>
     </header>
+
+    <section id="network-stats" class="network-stats" aria-live="polite">
+      <p class="loading">Завантажуємо мережеву статистику з OptimismPortal2…</p>
+    </section>
 
     <form id="search-form" class="search">
       <input
@@ -27,8 +31,7 @@
       <button type="submit">Перевірити</button>
     </form>
 
-    <div class="examples">
-      Приклад: <a href="#" data-example="0x353B4BDb62605ECc09741356a296204789572E9B">адреса з незавершеними виведеннями</a>
+    <div id="examples" class="examples">
       <span class="hint">(вставте будь-яку адресу, що бриджила ETH на GIWA Sepolia)</span>
     </div>
 

@@ -1,5 +1,6 @@
 import { scanAddress } from './bridge.js';
-import { L2_EXPLORER_BASE, L1_EXPLORER_BASE } from './constants.js';
+import { fetchNetworkWithdrawalStats } from './networkStats.js';
+import { L2_EXPLORER_BASE, L1_EXPLORER_BASE, EXAMPLE_ADDRESSES, APPROX_CHALLENGE_PERIOD_DAYS } from './constants.js';
 
 const form = document.getElementById('search-form');
 const input = document.getElementById('address-input');
@@ -7,6 +8,8 @@ const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const withdrawalsListEl = document.getElementById('withdrawals-list');
 const depositsListEl = document.getElementById('deposits-list');
+const examplesEl = document.getElementById('examples');
+const networkStatsEl = document.getElementById('network-stats');
 
 function setStatus(message, kind = 'info') {
   if (!message) {
@@ -105,18 +108,51 @@ async function runScan(rawAddress) {
     : '<p class="empty">Депозитів не знайдено для цієї адреси.</p>';
 }
 
+function renderExamples() {
+  const links = EXAMPLE_ADDRESSES.map(
+    (ex) => `<a href="#" data-example="${ex.address}">${ex.label}</a>`
+  ).join(', ');
+  examplesEl.innerHTML = `Приклад: ${links}
+    <span class="hint">(вставте будь-яку адресу, що бриджила ETH на GIWA Sepolia)</span>`;
+
+  examplesEl.querySelectorAll('[data-example]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      input.value = el.dataset.example;
+      runScan(el.dataset.example);
+    });
+  });
+}
+
+function renderNetworkStats(stats) {
+  networkStatsEl.innerHTML = `
+    <p>
+      📊 По всій мережі GIWA Sepolia (з логів OptimismPortal2 на L1, від запуску мережі):
+      <b>${stats.provenTotal}</b> виведень пройшли prove, <b>${stats.finalizedTotal}</b> з них finalized →
+      <b>${stats.pendingCount}</b> ще очікують finalize, і з них
+      <b>${stats.overdueCount}</b> вже минули орієнтовний ${APPROX_CHALLENGE_PERIOD_DAYS}-денний challenge-період —
+      тобто технічно готові й застрягли, бо ніхто не викликав finalize.
+    </p>
+    <p class="note">Це не враховує виведення, які ще навіть не зробили prove на L1 (справжнє число застряглих ще більше) — ${APPROX_CHALLENGE_PERIOD_DAYS}-денний поріг не підтверджений офіційно, див. README.</p>
+  `;
+}
+
+async function loadNetworkStats() {
+  try {
+    const stats = await fetchNetworkWithdrawalStats();
+    renderNetworkStats(stats);
+  } catch (err) {
+    networkStatsEl.innerHTML = `<p class="note">Мережева статистика тимчасово недоступна: ${err.message}</p>`;
+  }
+}
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   if (input.value.trim()) runScan(input.value.trim());
 });
 
-document.querySelectorAll('[data-example]').forEach((el) => {
-  el.addEventListener('click', (e) => {
-    e.preventDefault();
-    input.value = el.dataset.example;
-    runScan(el.dataset.example);
-  });
-});
+renderExamples();
+loadNetworkStats();
 
 const initialAddress = new URL(window.location.href).searchParams.get('address');
 if (initialAddress) {
