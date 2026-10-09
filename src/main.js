@@ -1,6 +1,12 @@
 import { scanAddress } from './bridge.js';
 import { fetchNetworkWithdrawalStats } from './networkStats.js';
-import { L2_EXPLORER_BASE, L1_EXPLORER_BASE, EXAMPLE_ADDRESSES, APPROX_CHALLENGE_PERIOD_DAYS } from './constants.js';
+import {
+  L2_EXPLORER_BASE,
+  L1_EXPLORER_BASE,
+  EXAMPLE_ADDRESSES,
+  APPROX_CHALLENGE_PERIOD_DAYS,
+  L1_RPC_FALLBACK_WINDOW_BLOCKS,
+} from './constants.js';
 
 const form = document.getElementById('search-form');
 const input = document.getElementById('address-input');
@@ -125,14 +131,21 @@ function renderExamples() {
 }
 
 function renderNetworkStats(stats) {
+  const scope = stats.isFallback
+    ? `за останні ~${Math.round((L1_RPC_FALLBACK_WINDOW_BLOCKS * 12) / 86400)} днів`
+    : 'від запуску мережі';
+  const fallbackNote = stats.isFallback
+    ? '<p class="note">⚠️ Основний RPC (Tenderly) недоступний. Показано дані з резервного публічного RPC лише за недавнє вікно блоків (а не всю історію) — повна історія тимчасово не показується, числа нижче стосуються лише цього вікна.</p>'
+    : '';
   networkStatsEl.innerHTML = `
     <p>
-      📊 По всій мережі GIWA Sepolia (з логів OptimismPortal2 на L1, від запуску мережі):
+      📊 По всій мережі GIWA Sepolia (з логів OptimismPortal2 на L1, ${scope}):
       <b>${stats.provenTotal}</b> виведень пройшли prove, <b>${stats.finalizedTotal}</b> з них finalized →
       <b>${stats.pendingCount}</b> ще очікують finalize, і з них
       <b>${stats.overdueCount}</b> вже минули орієнтовний ${APPROX_CHALLENGE_PERIOD_DAYS}-денний challenge-період —
       тобто технічно готові й застрягли, бо ніхто не викликав finalize.
     </p>
+    ${fallbackNote}
     <p class="note">Це не враховує виведення, які ще навіть не зробили prove на L1 (справжнє число застряглих ще більше) — ${APPROX_CHALLENGE_PERIOD_DAYS}-денний поріг не підтверджений офіційно, див. README.</p>
   `;
 }

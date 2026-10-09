@@ -1,4 +1,9 @@
-import { L1_RPC, L1_OPTIMISM_PORTAL, APPROX_CHALLENGE_PERIOD_DAYS } from './constants.js';
+import {
+  L1_RPC_URLS,
+  L1_RPC_FALLBACK_WINDOW_BLOCKS,
+  L1_OPTIMISM_PORTAL,
+  APPROX_CHALLENGE_PERIOD_DAYS,
+} from './constants.js';
 import { TOPIC } from './bridgeAbi.js';
 
 // Sepolia targets ~12s blocks; used only to turn the challenge-period estimate into a
@@ -6,8 +11,8 @@ import { TOPIC } from './bridgeAbi.js';
 // withdrawal to fetch its exact timestamp.
 const SECONDS_PER_BLOCK = 12;
 
-async function rpcCall(method, params) {
-  const res = await fetch(L1_RPC, {
+async function rpcCallAt(url, method, params) {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -17,23 +22,43 @@ async function rpcCall(method, params) {
   return json.result;
 }
 
+// Tries the primary L1 RPC for the portal's full log history first; if it's unreachable,
+// falls through the remaining RPCs asking only for a recent block window each (see
+// L1_RPC_FALLBACK_WINDOW_BLOCKS — the fallbacks are live-tested to reject a full-range
+// query outright, see constants.js), so a primary-RPC outage degrades to "recent window"
+// stats instead of no stats at all.
+async function fetchLogsWithFallback() {
+  let lastError;
+  for (const [index, url] of L1_RPC_URLS.entries()) {
+    const isFallback = index > 0;
+    try {
+      const latestHex = await rpcCallAt(url, 'eth_blockNumber', []);
+      const fromBlock = isFallback
+        ? `0x${Math.max(0, parseInt(latestHex, 16) - L1_RPC_FALLBACK_WINDOW_BLOCKS).toString(16)}`
+        : '0x0';
+      const logs = await rpcCallAt(url, 'eth_getLogs', [
+        {
+          address: L1_OPTIMISM_PORTAL,
+          topics: [[TOPIC.WithdrawalProven, TOPIC.WithdrawalProvenExtension1, TOPIC.WithdrawalFinalized]],
+          fromBlock,
+          toBlock: 'latest',
+        },
+      ]);
+      return { url, latestHex, logs, isFallback };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error('Усі публічні L1 RPC недоступні');
+}
+
 /**
  * Network-wide snapshot of every withdrawal that ever went through OptimismPortal2 on
  * L1: queried directly from the contract's own event log (not from any one address), so
  * it reflects the whole network rather than a sample of recent transactions.
  */
 export async function fetchNetworkWithdrawalStats() {
-  const [latestHex, logs] = await Promise.all([
-    rpcCall('eth_blockNumber', []),
-    rpcCall('eth_getLogs', [
-      {
-        address: L1_OPTIMISM_PORTAL,
-        topics: [[TOPIC.WithdrawalProven, TOPIC.WithdrawalProvenExtension1, TOPIC.WithdrawalFinalized]],
-        fromBlock: '0x0',
-        toBlock: 'latest',
-      },
-    ]),
-  ]);
+  const { latestHex, logs, isFallback } = await fetchLogsWithFallback();
 
   const latestBlock = parseInt(latestHex, 16);
   const provenByHash = new Map();
@@ -65,5 +90,6 @@ export async function fetchNetworkWithdrawalStats() {
     finalizedTotal: finalizedHashes.size,
     pendingCount,
     overdueCount,
+    isFallback,
   };
 }

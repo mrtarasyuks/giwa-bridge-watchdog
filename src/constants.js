@@ -15,13 +15,31 @@ export const L2_TO_L1_MESSAGE_PASSER = '0x42000000000000000000000000000000000000
 export const L2_STANDARD_BRIDGE = '0x4200000000000000000000000000000000000010';
 export const L2_CROSS_DOMAIN_MESSENGER = '0x4200000000000000000000000000000000000007';
 
-// Public Ethereum Sepolia JSON-RPC used only for one read-only eth_getLogs call (the
-// network-wide stats widget) — not a GIWA domain, no key, no wallet, nothing signed.
-// Chosen because, unlike most free public Sepolia RPCs, it doesn't prune eth_getLogs
-// history or cap the block range, so a single call can cover the portal's full history
-// (verified live from a browser context on 2026-10-09 — other public RPCs tried either
-// pruned history older than ~8000 blocks or capped the range to 50 blocks).
-export const L1_RPC = 'https://sepolia.gateway.tenderly.co';
+// Public Ethereum Sepolia JSON-RPCs used only for read-only eth_getLogs calls (the
+// network-wide stats widget) — not GIWA domains, no key, no wallet, nothing signed.
+// - tenderly (primary): verified live on 2026-10-09 to return the portal's *full* log
+//   history (currently ~2.75M blocks, from deployment to tip) in one call with no range
+//   cap — this is what makes the exact proven/finalized totals possible at all.
+// - ankr / publicnode (fallback, tried in order if tenderly is unreachable): live-tested
+//   on 2026-10-09 and confirmed to enforce a hard 50,000-block eth_getLogs range cap
+//   ("exceed maximum block range: 50000"), which the portal's full history is now ~55x
+//   over — so a full-history query always fails on them. networkStats.js therefore only
+//   asks fallback RPCs for a recent window (see L1_RPC_FALLBACK_WINDOW_BLOCKS below)
+//   instead of pretending a full-range retry could ever succeed there.
+export const L1_RPC_URLS = [
+  'https://sepolia.gateway.tenderly.co',
+  'https://rpc.ankr.com/eth_sepolia',
+  'https://ethereum-sepolia-rpc.publicnode.com',
+];
+
+// Block window used when a fallback RPC answers instead of the primary. 50,000 (the
+// range cap above) failed outright and even 45,000 errored with "pruned history
+// unavailable" on both fallback RPCs' free tier — 8,000 blocks (~1 day) was tested live
+// and works reliably on both. That's well short of the ~7-day challenge period, so a
+// fallback-sourced snapshot will typically show 0 "overdue" even when there genuinely are
+// some outside the window — the UI labels fallback results as a recent window, not full
+// history, to stay honest about that gap.
+export const L1_RPC_FALLBACK_WINDOW_BLOCKS = 8000;
 
 // OptimismPortal2 on Ethereum Sepolia (L1) for GIWA Sepolia — the fault-proof contract
 // that emits WithdrawalProven/WithdrawalProvenExtension1/WithdrawalFinalized for every
