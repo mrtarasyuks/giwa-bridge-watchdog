@@ -9,19 +9,30 @@ async function getJson(url) {
   return res.json();
 }
 
-/** Fetches up to `maxItems` transactions sent by `address`, newest first, paginating as needed. */
+/**
+ * Fetches up to `maxItems` transactions sent by `address`, newest first, paginating as
+ * needed. Returns `truncated: true` when the address still had older transactions beyond
+ * `maxItems` (i.e. the loop stopped because of the cap, not because history ran out) —
+ * callers use that to tell a high-activity wallet apart from one that's simply quiet.
+ */
 export async function fetchSentTransactions(base, address, maxItems = 150) {
   const items = [];
   let params = '';
-  while (items.length < maxItems) {
+  let truncated = false;
+  for (;;) {
     const url = `${base}/api/v2/addresses/${address}/transactions?filter=from${params}`;
     const page = await getJson(url);
     const pageItems = page.items ?? [];
     items.push(...pageItems);
-    if (!page.next_page_params || pageItems.length === 0) break;
+    const hasMore = Boolean(page.next_page_params) && pageItems.length > 0;
+    if (items.length >= maxItems) {
+      truncated = hasMore;
+      break;
+    }
+    if (!hasMore) break;
     params = '&' + new URLSearchParams(page.next_page_params).toString();
   }
-  return items.slice(0, maxItems);
+  return { items: items.slice(0, maxItems), truncated };
 }
 
 export async function fetchTxLogs(base, txHash) {

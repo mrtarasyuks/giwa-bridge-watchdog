@@ -7,6 +7,10 @@ import {
   L2_CROSS_DOMAIN_MESSENGER,
   DEPOSIT_TX_TYPE,
   APPROX_CHALLENGE_PERIOD_DAYS,
+  L2_SCAN_NORMAL,
+  L2_SCAN_DEEP,
+  L1_SCAN_NORMAL,
+  L1_SCAN_DEEP,
 } from './constants.js';
 import {
   MessagePassedEvent,
@@ -39,8 +43,8 @@ function l1TxUrl(hash) {
 }
 
 /** Step 1 (L2): find WithdrawalInitiated-equivalent MessagePassed events sent by this address. */
-async function findInitiatedWithdrawals(address) {
-  const sentTxs = await fetchSentTransactions(L2_EXPLORER_BASE, address, 150);
+async function findInitiatedWithdrawals(address, maxItems) {
+  const { items: sentTxs, truncated } = await fetchSentTransactions(L2_EXPLORER_BASE, address, maxItems);
   const candidates = sentTxs.filter((tx) => {
     const to = tx.to?.hash?.toLowerCase();
     return to && WITHDRAWAL_ENTRYPOINTS.has(to);
@@ -67,12 +71,12 @@ async function findInitiatedWithdrawals(address) {
       }));
   });
 
-  return perTx.flat();
+  return { withdrawals: perTx.flat(), scanned: sentTxs.length, truncated };
 }
 
 /** Step 2 (L1): scan this address's L1 txs for WithdrawalProven(Extension1)/WithdrawalFinalized/TransactionDeposited. */
-async function scanL1Activity(address) {
-  const sentTxs = await fetchSentTransactions(L1_EXPLORER_BASE, address, 80);
+async function scanL1Activity(address, maxItems) {
+  const { items: sentTxs, truncated } = await fetchSentTransactions(L1_EXPLORER_BASE, address, maxItems);
 
   const perTx = await mapWithConcurrency(sentTxs, 5, async (tx) => {
     let logs = [];
@@ -116,6 +120,8 @@ async function scanL1Activity(address) {
     provenExt1: perTx.flatMap((r) => r.provenExt1),
     finalized: perTx.flatMap((r) => r.finalized),
     deposited: perTx.flatMap((r) => r.deposited),
+    scanned: sentTxs.length,
+    truncated,
   };
 }
 
@@ -157,20 +163,23 @@ function withdrawalStatus(proof, finalize, l1Unavailable) {
   };
 }
 
-export async function scanAddress(address) {
+export async function scanAddress(address, { deep = false } = {}) {
   const normalized = getAddress(address);
+  const maxL2 = deep ? L2_SCAN_DEEP : L2_SCAN_NORMAL;
+  const maxL1 = deep ? L1_SCAN_DEEP : L1_SCAN_NORMAL;
 
-  let initiated;
+  let l2Result;
   try {
-    initiated = await findInitiatedWithdrawals(normalized);
+    l2Result = await findInitiatedWithdrawals(normalized, maxL2);
   } catch (err) {
     throw new ScanError('l2', err);
   }
+  const { withdrawals: initiated, scanned: l2Scanned, truncated: l2Truncated } = l2Result;
 
-  let l1Activity = { proven: [], provenExt1: [], finalized: [], deposited: [] };
+  let l1Activity = { proven: [], provenExt1: [], finalized: [], deposited: [], scanned: 0, truncated: false };
   let l1Unavailable = null;
   try {
-    l1Activity = await scanL1Activity(normalized);
+    l1Activity = await scanL1Activity(normalized, maxL1);
   } catch (err) {
     l1Unavailable = err.message;
   }
@@ -203,7 +212,21 @@ export async function scanAddress(address) {
     }))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  return { address: normalized, withdrawals, deposits, l1Unavailable };
+  return {
+    address: normalized,
+    withdrawals,
+    deposits,
+    l1Unavailable,
+    deep,
+    scan: {
+      l2Scanned,
+      l2Max: maxL2,
+      l2Truncated,
+      l1Scanned: l1Activity.scanned,
+      l1Max: maxL1,
+      l1Truncated: l1Activity.truncated,
+    },
+  };
 }
 
 export class ScanError extends Error {

@@ -6,6 +6,8 @@ import {
   EXAMPLE_ADDRESSES,
   APPROX_CHALLENGE_PERIOD_DAYS,
   L1_RPC_FALLBACK_WINDOW_BLOCKS,
+  L2_SCAN_DEEP,
+  L1_SCAN_DEEP,
 } from './constants.js';
 
 const form = document.getElementById('search-form');
@@ -16,6 +18,7 @@ const withdrawalsListEl = document.getElementById('withdrawals-list');
 const depositsListEl = document.getElementById('deposits-list');
 const examplesEl = document.getElementById('examples');
 const networkStatsEl = document.getElementById('network-stats');
+const scanDeeperEl = document.getElementById('scan-deeper');
 
 function setStatus(message, kind = 'info') {
   if (!message) {
@@ -74,17 +77,42 @@ function depositCard(d) {
   `;
 }
 
-async function runScan(rawAddress) {
+function renderScanDeeper(data) {
+  const canGoDeeper = !data.deep && (data.scan.l2Truncated || data.scan.l1Truncated);
+  if (!canGoDeeper) {
+    scanDeeperEl.hidden = true;
+    scanDeeperEl.innerHTML = '';
+    return;
+  }
+  scanDeeperEl.hidden = false;
+  scanDeeperEl.innerHTML = `
+    <p>
+      У цієї адреси є ще старіші транзакції за межами звичайного вікна сканування
+      (${data.scan.l2Scanned}/${data.scan.l2Max} на L2, ${data.scan.l1Scanned}/${data.scan.l1Max} на L1 — ліміт досягнуто,
+      історія продовжується далі) — можливо, там є ще застряглі виведення великого фарм-кошелька.
+    </p>
+    <button type="button" id="scan-deeper-btn">🔎 Сканувати глибше (до ${L2_SCAN_DEEP}/${L1_SCAN_DEEP} tx, повільніше)</button>
+  `;
+  document.getElementById('scan-deeper-btn').addEventListener('click', () => runScan(data.address, { deep: true }));
+}
+
+async function runScan(rawAddress, { deep = false } = {}) {
   resultsEl.hidden = true;
+  scanDeeperEl.hidden = true;
   if (!/^0x[0-9a-fA-F]{40}$/.test(rawAddress.trim())) {
     setStatus('Це не схоже на адресу кошелька (очікується 0x... з 40 hex-символів).', 'error');
     return;
   }
-  setStatus('Шукаємо транзакції на GIWA Sepolia та Ethereum Sepolia…', 'loading');
+  setStatus(
+    deep
+      ? `Глибоке сканування (до ${L2_SCAN_DEEP} tx на L2, ${L1_SCAN_DEEP} на L1) — може зайняти хвилину…`
+      : 'Шукаємо транзакції на GIWA Sepolia та Ethereum Sepolia…',
+    'loading'
+  );
 
   let data;
   try {
-    data = await scanAddress(rawAddress.trim());
+    data = await scanAddress(rawAddress.trim(), { deep });
   } catch (err) {
     setStatus(`Не вдалося отримати дані: ${err.message}`, 'error');
     return;
@@ -100,7 +128,10 @@ async function runScan(rawAddress) {
       'warning'
     );
   } else if (data.withdrawals.length === 0 && data.deposits.length === 0) {
-    setStatus('Транзакцій мосту для цієї адреси не знайдено (перевірено останні 150 вихідних tx на L2 і 80 на L1).', 'info');
+    setStatus(
+      `Транзакцій мосту для цієї адреси не знайдено (перевірено останні ${data.scan.l2Scanned} вихідних tx на L2 і ${data.scan.l1Scanned} на L1).`,
+      'info'
+    );
   } else {
     setStatus(null);
   }
@@ -112,6 +143,8 @@ async function runScan(rawAddress) {
   depositsListEl.innerHTML = data.deposits.length
     ? data.deposits.map((d) => depositCard({ ...d, address: data.address })).join('')
     : '<p class="empty">Депозитів не знайдено для цієї адреси.</p>';
+
+  renderScanDeeper(data);
 }
 
 function renderExamples() {

@@ -89,6 +89,27 @@ header h1 { margin: 0 0 6px; font-size: 1.8rem; }
 .status.warning { border-color: var(--yellow); color: var(--yellow); }
 .status.loading { color: var(--muted); }
 
+.scan-deeper {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: var(--panel);
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.scan-deeper p { margin: 0 0 8px; }
+.scan-deeper button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+.scan-deeper button:hover { background: rgba(88, 166, 255, 0.1); }
+
 .results { margin-top: 28px; }
 section { margin-bottom: 32px; }
 section h2 { font-size: 1.1rem; margin-bottom: 4px; }

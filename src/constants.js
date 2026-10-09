@@ -51,6 +51,17 @@ export const L1_RPC_FALLBACK_WINDOW_BLOCKS = 8000;
 // it for anything beyond this read-only demo (see README "Open questions").
 export const L1_OPTIMISM_PORTAL = '0x956962C34687A954e611A83619ABaA37Ce6bC78A';
 
+// Per-address scan depth: how many of the address's most recent outgoing transactions to
+// check for bridge activity on each chain. "Normal" keeps a typical test wallet's search
+// fast; "deep" costs far more Blockscout requests (and time) but was added because the
+// default window was losing older withdrawals for addresses with heavy unrelated L1/L2
+// activity (e.g. farm wallets touching many testnet dapps) — it's offered as an explicit
+// extra step (see the "scan deeper" prompt in main.js) rather than paid on every search.
+export const L2_SCAN_NORMAL = 150;
+export const L2_SCAN_DEEP = 1000;
+export const L1_SCAN_NORMAL = 80;
+export const L1_SCAN_DEEP = 600;
+
 // OP Stack deposit transactions use EIP-2718 type 0x7E (126) on the L2 side.
 export const DEPOSIT_TX_TYPE = 126;
 
